@@ -41,6 +41,10 @@ def reduced_motion_option(fn):
     return fn
 
 
+def locale_option(fn):
+    click.option("--locale", help="Locale to use in the browser. For example: en-US")(fn)
+    return fn
+
 @click.group(
     cls=DefaultGroup,
     default="shot",
@@ -142,6 +146,7 @@ def cli():
 @browser_option
 @user_agent_option
 @reduced_motion_option
+@locale_option
 def shot(
     url,
     auth,
@@ -165,6 +170,7 @@ def shot(
     browser,
     user_agent,
     reduced_motion,
+    locale,
 ):
     """
     Take a single screenshot of a page or portion of a page.
@@ -224,6 +230,7 @@ def shot(
             user_agent=user_agent,
             timeout=timeout,
             reduced_motion=reduced_motion,
+            locale=locale,
         )
         if interactive or devtools:
             use_existing_page = True
@@ -267,6 +274,7 @@ def _browser_context(
     user_agent=None,
     timeout=None,
     reduced_motion=False,
+    locale=None
 ):
     browser_kwargs = dict(headless=not interactive, devtools=devtools)
     if browser == "chromium":
@@ -287,6 +295,9 @@ def _browser_context(
         context_args["reduced_motion"] = "reduce"
     if user_agent is not None:
         context_args["user_agent"] = user_agent
+
+    if locale is not None:
+        context_args["locale"] = locale
     context = browser_obj.new_context(**context_args)
     if timeout:
         context.set_default_timeout(timeout)
@@ -325,6 +336,7 @@ def _browser_context(
 @browser_option
 @user_agent_option
 @reduced_motion_option
+@locale_option
 def multi(
     config,
     auth,
@@ -336,6 +348,7 @@ def multi(
     browser,
     user_agent,
     reduced_motion,
+    locale,
 ):
     """
     Take multiple screenshots, defined by a YAML file
@@ -366,6 +379,7 @@ def multi(
             user_agent=user_agent,
             timeout=timeout,
             reduced_motion=reduced_motion,
+            locale=locale
         )
         for shot in shots:
             if (
@@ -460,8 +474,9 @@ def accessibility(url, auth, output, javascript, timeout):
 @browser_option
 @user_agent_option
 @reduced_motion_option
+@locale_option
 def javascript(
-    url, javascript, input, auth, output, raw, browser, user_agent, reduced_motion
+    url, javascript, input, auth, output, raw, browser, user_agent, reduced_motion, locale
 ):
     """
     Execute JavaScript against the page and return the result as JSON
@@ -498,6 +513,7 @@ def javascript(
             browser=browser,
             user_agent=user_agent,
             reduced_motion=reduced_motion,
+            locale=locale,
         )
         page = context.new_page()
         page.goto(url)
@@ -560,6 +576,7 @@ def javascript(
     help="Scale of the webpage rendering",
 )
 @click.option("--print-background", is_flag=True, help="Print background graphics")
+@locale_option
 def pdf(
     url,
     auth,
@@ -573,6 +590,7 @@ def pdf(
     height,
     scale,
     print_background,
+    locale,
 ):
     """
     Create a PDF of the specified page
@@ -593,7 +611,7 @@ def pdf(
     if output is None:
         output = filename_for_url(url, ext="pdf", file_exists=os.path.exists)
     with sync_playwright() as p:
-        context, browser_obj = _browser_context(p, auth)
+        context, browser_obj = _browser_context(p, auth, locale=locale)
         page = context.new_page()
         page.goto(url)
         if wait:
@@ -652,6 +670,7 @@ def pdf(
 )
 @browser_option
 @user_agent_option
+@locale_option
 def html(
     url,
     auth,
@@ -661,6 +680,7 @@ def html(
     wait,
     browser,
     user_agent,
+    locale,
 ):
     """
     Output the final HTML of the specified page
@@ -678,7 +698,7 @@ def html(
         output = filename_for_url(url, ext="html", file_exists=os.path.exists)
     with sync_playwright() as p:
         context, browser_obj = _browser_context(
-            p, auth, browser=browser, user_agent=user_agent
+            p, auth, browser=browser, user_agent=user_agent, locale=locale
         )
         page = context.new_page()
         page.goto(url)
@@ -695,7 +715,7 @@ def html(
         if output == "-":
             sys.stdout.write(html)
         else:
-            open(output, "w").write(html)
+            open(output, "w", encoding="utf-8").write(html)
             click.echo(
                 "HTML snapshot of '{}' written to '{}'".format(url, output), err=True
             )
